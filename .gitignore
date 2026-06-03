@@ -1,0 +1,6 @@
+# Claude Code 세션 로그/로컬 설정
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
