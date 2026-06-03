@@ -137,6 +137,34 @@ url
 
 ---
 
+## 구현 (Implementation)
+
+설계를 **Kotlin + Spring Boot 4.0**으로 직접 구현했다. 상세 계획은 [IMPLEMENTATION.md](./IMPLEMENTATION.md).
+
+- **스택**: Kotlin, Spring Boot 4.0 (WebMVC, Data JPA), PostgreSQL, Redis, Flyway, Gradle
+- **아키텍처**: 레이어드 (Controller → Service → Repository)
+- **키 생성**: PostgreSQL 시퀀스 카운터 → Base62 인코딩
+- **캐싱**: Redis cache-aside (리다이렉트 경로)
+
+### API
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/api/v1/urls` | 긴 URL → 단축 URL (201) |
+| GET | `/{shortKey}` | 원본으로 302 리다이렉트 (없으면 404) |
+
+### 실행
+```bash
+docker compose up -d      # postgres + redis
+./gradlew bootRun         # 앱 (http://localhost:8080)
+./gradlew test            # 테스트 (Testcontainers, Docker 필요)
+```
+
+### 검증 상태
+✅ 9개 테스트 통과 — Base62 단위테스트 4 + 통합테스트 4(단축/302/404/400) + 컨텍스트 로드 1.
+Testcontainers로 실제 PostgreSQL·Redis에 대해 검증.
+
+---
+
 ## 참고 자료
 - Alex Xu, *System Design Interview* — Chapter: Design a URL Shortener
 - (추가 학습 자료 링크)

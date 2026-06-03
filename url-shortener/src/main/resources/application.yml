@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: url-shortener
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/urlshortener
+    username: urlshortener
+    password: urlshortener
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # 스키마는 Flyway가 관리, JPA는 검증만
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
