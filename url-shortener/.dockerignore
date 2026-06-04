@@ -1,0 +1,13 @@
+# 빌드 컨텍스트 최소화 — build/libs(jar)만 필요
+.gradle/
+.git/
+src/
+build/classes/
+build/kotlin/
+build/tmp/
+build/reports/
+build/test-results/
+build/resources/
+build/generated/
+load-test/results/
+*.log

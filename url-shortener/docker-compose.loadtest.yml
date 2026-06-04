@@ -1,14 +1,51 @@
-# 부하 테스트용 오버라이드 — 기본 compose에 CPU 코어 핀 + 메모리 상한을 더한다.
-# 사용:
-#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --wait
+# 부하 테스트용 오버라이드 (all-docker): pg/redis 핀 + app·k6 컨테이너 추가.
+# 모든 CPU/메모리 제한을 docker 한 곳에서 관리하고, app↔redis/pg는 브리지 네트워크로 통신.
 #
-# 코어 배치(12코어): 0-1 OS/이웃 | 2-4 k6 | 5 redis | 6-7 postgres | 8-11 app
-# 주의: cpuset은 "내 컨테이너를 그 코어에 묶을" 뿐, 다른(미고정) 프로세스가
-#       같은 코어를 쓰는 것을 막지는 않는다. 완전 격리는 이웃 프로세스를 멈춰야 함.
+# 사용:
+#   ./gradlew bootJar
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --build app
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml run --rm k6 run /scripts/load-test.js
+#
+# 코어 배치(12): 0-1 OS/이웃 | 2-4 k6 | 5 redis | 6-7 postgres | 8-11 app
 services:
   postgres:
     cpuset: "6,7"
     mem_limit: 1g
+
   redis:
     cpuset: "5"
     mem_limit: 512m
+
+  app:
+    build:
+      context: .
+    image: url-shortener-app:loadtest
+    container_name: url-shortener-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/urlshortener
+      SPRING_DATASOURCE_USERNAME: urlshortener
+      SPRING_DATASOURCE_PASSWORD: urlshortener
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+    ports:
+      - "8088:8080"      # 호스트 헬스체크/스모크용 (k6는 app:8080 브리지로 호출)
+    cpuset: "8-11"
+    mem_limit: 768m
+
+  k6:
+    image: grafana/k6:latest
+    container_name: url-shortener-k6
+    profiles: ["k6"]     # `up`에서 자동 기동 안 함 — `run`으로 호출
+    depends_on:
+      - app
+    environment:
+      BASE_URL: "http://app:8080"
+      SEED_COUNT: "200"
+    volumes:
+      - ./load-test:/scripts
+    cpuset: "2-4"
