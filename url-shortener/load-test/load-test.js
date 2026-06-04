@@ -17,17 +17,17 @@ export const options = {
       exec: 'redirect',
       startVUs: 0,
       stages: [
-        { duration: '15s', target: 50 }, // ramp-up
-        { duration: '30s', target: 50 }, // sustain
+        { duration: '15s', target: 100 }, // ramp-up
+        { duration: '30s', target: 300 }, // sustain
         { duration: '15s', target: 0 },  // ramp-down
       ],
       gracefulRampDown: '5s',
     },
-    // 쓰기(단축) — 소수 VU 상시
+    // 쓰기(단축) — 소수 VU 상시 (read:write ≈ 30:1)
     create: {
       executor: 'constant-vus',
       exec: 'create',
-      vus: 5,
+      vus: 10,
       duration: '60s',
     },
   },
