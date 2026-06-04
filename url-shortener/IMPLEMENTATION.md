@@ -38,6 +38,7 @@
 | 4 | 리다이렉트 API (GET /{key}) | 302 + Location, 없는 키 404 |
 | 5 | Redis 캐시 (cache-aside) | 2회 호출 시 DB 1회만 조회 |
 | 6 | 입력 검증 + 실행 가이드 | 잘못된 URL 400, README 갱신 |
+| 7 | k6 부하 테스트 | read-heavy 프로파일, 에러율 0%, 캐시 적중 확인 ([load-test/](./load-test/)) |
 
 진행: 가능한 범위에서 테스트 먼저 → 구현 → 통과 확인 (TDD 지향).
 

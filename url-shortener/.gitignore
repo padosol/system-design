@@ -38,3 +38,6 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### 부하 테스트 원시 결과 ###
+load-test/results/

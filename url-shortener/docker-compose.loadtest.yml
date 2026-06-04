@@ -1,0 +1,14 @@
+# 부하 테스트용 오버라이드 — 기본 compose에 CPU 코어 핀 + 메모리 상한을 더한다.
+# 사용:
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --wait
+#
+# 코어 배치(12코어): 0-1 OS/이웃 | 2-4 k6 | 5 redis | 6-7 postgres | 8-11 app
+# 주의: cpuset은 "내 컨테이너를 그 코어에 묶을" 뿐, 다른(미고정) 프로세스가
+#       같은 코어를 쓰는 것을 막지는 않는다. 완전 격리는 이웃 프로세스를 멈춰야 함.
+services:
+  postgres:
+    cpuset: "6,7"
+    mem_limit: 1g
+  redis:
+    cpuset: "5"
+    mem_limit: 512m
