@@ -1,5 +1,6 @@
 package com.padosol.urlshortener
 
+import com.github.benmanes.caffeine.cache.Cache
 import com.padosol.urlshortener.repository.UrlRepository
 import com.padosol.urlshortener.service.UrlService
 import org.junit.jupiter.api.AfterEach
@@ -14,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.net.URI
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @Import(TestcontainersConfiguration::class)
@@ -24,11 +26,13 @@ class UrlControllerIntegrationTest @Autowired constructor(
     val urlService: UrlService,
     val urlRepository: UrlRepository,
     val redisTemplate: StringRedisTemplate,
+    val l1Cache: Cache<String, String>,
 ) {
 
-    // 테스트 독립성: 공유 컨테이너의 누수(시퀀스 행/Redis 키) 차단
+    // 테스트 독립성: 공유 상태(컨테이너 행/Redis 키/L1 인앱 캐시) 누수 차단
     @AfterEach
     fun cleanup() {
+        l1Cache.invalidateAll()
         redisTemplate.keys("url:*")?.let { if (it.isNotEmpty()) redisTemplate.delete(it) }
         urlRepository.deleteAll()
     }
@@ -95,6 +99,19 @@ class UrlControllerIntegrationTest @Autowired constructor(
         val shortKey = urlService.shorten("https://example.com/cache-test")
         urlService.resolve(shortKey)
         assertTrue(redisTemplate.hasKey("url:$shortKey"))
+    }
+
+    @Test
+    fun `L1 캐시에 적재되면 Redis-DB 없이도 조회된다`() {
+        val longUrl = "https://example.com/l1"
+        val shortKey = urlService.shorten(longUrl)
+        urlService.resolve(shortKey)             // L1 + L2 적재
+
+        redisTemplate.delete("url:$shortKey")    // L2(Redis) 제거
+        urlRepository.deleteAll()                // DB 제거
+
+        // L1에만 남아있으므로 L1이 동작해야만 조회됨
+        assertEquals(longUrl, urlService.resolve(shortKey))
     }
 
     // 응답 JSON에서 shortUrl 필드를 찾아 마지막 path segment(키)를 추출 (문자열 split 대신)

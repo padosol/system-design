@@ -1,5 +1,6 @@
 package com.padosol.urlshortener.service
 
+import com.github.benmanes.caffeine.cache.Cache
 import com.padosol.urlshortener.domain.Url
 import com.padosol.urlshortener.repository.UrlRepository
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -12,6 +13,7 @@ class UrlService(
     private val urlRepository: UrlRepository,
     private val base62Encoder: Base62Encoder,
     private val redisTemplate: StringRedisTemplate,
+    private val l1Cache: Cache<String, String>,
 ) {
 
     /** 긴 URL을 받아 짧은 키를 생성한다. (카운터 + Base62) */
@@ -23,13 +25,22 @@ class UrlService(
         return shortKey
     }
 
-    /** 짧은 키로 원본 URL을 찾는다. 캐시 우선(cache-aside), 없으면 null. */
+    /** 짧은 키로 원본 URL을 찾는다. L1(인앱) → L2(Redis) → DB, 없으면 null. */
     @Transactional(readOnly = true)
     fun resolve(shortKey: String): String? {
-        redisTemplate.opsForValue().get(cacheKey(shortKey))?.let { return it }
+        // L1: 인앱 캐시 (네트워크 없음)
+        l1Cache.getIfPresent(shortKey)?.let { return it }
 
+        // L2: Redis
+        redisTemplate.opsForValue().get(cacheKey(shortKey))?.let {
+            l1Cache.put(shortKey, it)
+            return it
+        }
+
+        // DB
         val longUrl = urlRepository.findByShortKey(shortKey)?.longUrl ?: return null
         redisTemplate.opsForValue().set(cacheKey(shortKey), longUrl, CACHE_TTL)
+        l1Cache.put(shortKey, longUrl)
         return longUrl
     }
 
