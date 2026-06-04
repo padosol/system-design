@@ -160,7 +160,7 @@ docker compose up -d      # postgres + redis
 ```
 
 ### 검증 상태
-- ✅ **기능 테스트** 9개 통과 — Base62 단위 4 + 통합 4(단축/302/404/400) + 컨텍스트 로드 1. Testcontainers로 실제 PostgreSQL·Redis 검증.
+- ✅ **기능 테스트** 23개 통과 — Base62 단위 14 + 통합 8(단축/302/404/400/입력검증) + 컨텍스트 로드 1. Testcontainers로 실제 PostgreSQL·Redis 검증.
 - ✅ **부하 테스트** (k6) — 재현성 하니스(CPU 핀 + 워밍업 + median of 3) 기준 ≈2,199 req/s, 에러율 0%, 리다이렉트 p95 ≈52ms, 캐시 적중 확인. 상세: [load-test/LOAD_TEST.md](./load-test/LOAD_TEST.md)
 
 ---

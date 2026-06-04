@@ -26,11 +26,13 @@ class Base62Encoder {
     }
 
     fun decode(key: String): Long {
+        require(key.isNotEmpty()) { "key must not be empty" }
         var result = 0L
         for (c in key) {
             val idx = alphabet.indexOf(c)
             require(idx >= 0) { "invalid base62 char: $c" }
-            result = result * base + idx
+            // Long 범위를 넘으면 silent wrap 대신 ArithmeticException
+            result = Math.addExact(Math.multiplyExact(result, base), idx.toLong())
         }
         return result
     }
