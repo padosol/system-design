@@ -2,6 +2,10 @@
 
 이 저장소의 **코드 컨벤션**. (전역 행동 지침은 `~/.claude/CLAUDE.md` 참고)
 
+## 문서 (→ [`docs/`](./docs/README.md))
+- **코드 작성 가이드** [`docs/code-guide`](./docs/code-guide/README.md): 신규 코드/시스템이 따르는 6대 원칙 — 헥사고날 · DDD · TDD · RESTful · 로깅 · 에러 중앙화
+- **결정 기록(ADR)** [`docs/adr`](./docs/adr/README.md) · **용어집** [`docs/glossary.md`](./docs/glossary.md): 도메인 규칙·아키텍처 결정이나 새 용어가 생기면 갱신
+
 ## 스택
 - Kotlin + Spring Boot 4.0, Gradle (Kotlin DSL)
 - PostgreSQL + Flyway, Spring Data JPA
@@ -9,7 +13,7 @@
 
 ## 구조
 - 패키지: `com.padosol.<service>` (예: `urlshortener`, `notification`)
-- 레이어드: Controller → Service → Repository
+- 신규 시스템/코드는 헥사고날 + DDD(→ [가이드](./docs/code-guide/01-hexagonal-architecture.md)). 기존 `url-shortener`/`notification-system`은 레이어드(Controller → Service → Repository) 유지
 - 시스템마다 최상위 디렉터리 1개(`url-shortener/`, `notification-system/`), 설계는 그 안의 `README.md`(7섹션 프레임워크, 루트 `TEMPLATE.md` 복사해 시작)
 
 ## 코드
@@ -26,3 +30,7 @@
 ## 커밋
 - Conventional Commits 한글: `feat:` `fix:` `docs:` `test:` `refactor:` `chore:`
 - 커밋·PR 어디에도 트레일러/footer(`Co-Authored-By`, `Generated with` 등) 넣지 않음
+
+## 협업 (→ [`docs/git-and-pr-workflow.md`](./docs/git-and-pr-workflow.md))
+- 브랜치 `<type>/<kebab-요약>`, `main` 직접 push 금지. PR은 논리 단위 1개 + [PR 템플릿](./.github/pull_request_template.md), squash 머지
+- 리뷰는 코드가이드 6원칙·테스트 동반·마이그레이션 규칙·용어 일치·시크릿 노출을 확인
