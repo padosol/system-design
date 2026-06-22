@@ -1,6 +1,5 @@
 package com.padosol.notification.service
 
-import com.padosol.notification.domain.Channel
 import com.padosol.notification.domain.Device
 import com.padosol.notification.domain.NotificationSetting
 import com.padosol.notification.repository.DeviceRepository
@@ -29,15 +28,15 @@ class RegistrationService(
         }
     }
 
-    /** (user, channel, category) 단위 수신 설정 upsert(F2). */
+    /** (user, category) 단위 수신 설정 upsert(F2). */
     @Transactional
-    fun updateSetting(userId: Long, channel: Channel, category: String, enabled: Boolean): NotificationSetting {
-        val existing = settings.findByUserIdAndChannelAndCategory(userId, channel, category)
+    fun updateSetting(userId: Long, category: String, enabled: Boolean): NotificationSetting {
+        val existing = settings.findByUserIdAndCategory(userId, category)
         return if (existing != null) {
             existing.enabled = enabled
             settings.save(existing)
         } else {
-            settings.save(NotificationSetting(userId = userId, channel = channel, category = category, enabled = enabled))
+            settings.save(NotificationSetting(userId = userId, category = category, enabled = enabled))
         }
     }
 }
