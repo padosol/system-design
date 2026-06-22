@@ -20,4 +20,10 @@ class PiiTest {
     fun `device token 은 앞 4글자만`() {
         assertEquals("abcd***", Pii.mask("abcdef0123"))
     }
+
+    @Test
+    fun `짧은 값은 전부 마스킹된다`() {
+        assertEquals("****", Pii.mask("12")) // 짧은 전화
+        assertEquals("****", Pii.mask("ab")) // 짧은 토큰
+    }
 }

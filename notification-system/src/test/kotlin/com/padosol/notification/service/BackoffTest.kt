@@ -19,4 +19,9 @@ class BackoffTest {
         assertEquals(0, Backoff.delayMillis(0, 1))
         assertEquals(0, Backoff.delayMillis(0, 5))
     }
+
+    @Test
+    fun `attempt 가 0 이하면 0 (가드)`() {
+        assertEquals(0, Backoff.delayMillis(100, 0))
+    }
 }

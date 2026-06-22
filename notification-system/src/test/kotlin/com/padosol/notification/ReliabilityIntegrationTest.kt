@@ -3,6 +3,7 @@ package com.padosol.notification
 import com.padosol.notification.domain.AppUser
 import com.padosol.notification.domain.Channel
 import com.padosol.notification.domain.DeliveryStatus
+import com.padosol.notification.domain.Device
 import com.padosol.notification.domain.OutboxStatus
 import com.padosol.notification.domain.Template
 import com.padosol.notification.provider.RecordingProviders
@@ -16,16 +17,19 @@ import com.padosol.notification.repository.DeviceRepository
 import com.padosol.notification.service.NotificationService
 import com.padosol.notification.service.OutboxRelay
 import com.padosol.notification.service.SendCommand
+import com.padosol.notification.service.ThrottleStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
+import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -47,6 +51,7 @@ class ReliabilityIntegrationTest @Autowired constructor(
     val service: NotificationService,
     val relay: OutboxRelay,
     val recorder: RecordingProviders,
+    val throttleStore: ThrottleStore,
 ) {
 
     @AfterEach
@@ -172,6 +177,56 @@ class ReliabilityIntegrationTest @Autowired constructor(
 
         relay.publishPending()
         assertEquals(1, recorder.sent.size) // 같은 idempotencyKey → 중복 발송 0
+    }
+
+    @Test
+    fun `accept 시 user 가 없으면 404`() {
+        assertFailsWith<ResponseStatusException> {
+            service.accept(emailCmd(userId = 999_999, dedupKey = null))
+        }
+    }
+
+    @Test
+    fun `accept 시 template 이 없으면 404`() {
+        val user = seedUser(email = "a@b.com")
+        assertFailsWith<ResponseStatusException> {
+            service.accept(SendCommand(user, Channel.EMAIL, "NOPE", "transactional", null, emptyMap(), "p", null))
+        }
+    }
+
+    @Test
+    fun `status 는 미발행이면 pending, 일부만 종료되면 partial`() {
+        val user = seedUser(email = "a@b.com")
+        devices.save(Device(userId = user, token = "tok", platform = "ios"))
+        templates.save(Template(templateId = "T", category = "transactional", body = "hi"))
+        // channel 미지정 → push + email = delivery 2건 (모두 QUEUED)
+        val requestId = service.accept(
+            SendCommand(user, null, "T", "transactional", null, emptyMap(), "p", "k1"),
+        ).requestId
+
+        assertEquals("pending", service.status(requestId).progress)
+
+        val first = deliveries.findByRequestId(requestId).first()
+        first.status = DeliveryStatus.SENT
+        deliveries.save(first)
+
+        assertEquals("partial", service.status(requestId).progress)
+    }
+
+    @Test
+    fun `SMS 채널도 발송된다`() {
+        val user = seedUser(phone = "+15551234")
+        templates.save(Template(templateId = "T", category = "transactional", body = "hi"))
+        service.accept(SendCommand(user, Channel.SMS, "T", "transactional", null, emptyMap(), "p", "sms1"))
+
+        relay.publishPending()
+        assertEquals(1, recorder.countByChannel(Channel.SMS))
+    }
+
+    @Test
+    fun `throttle 재시도는 같은 토큰이면 idempotent 하게 허용`() {
+        assertTrue(throttleStore.tryAcquire(1L, "covtest", "tok-x"))
+        assertTrue(throttleStore.tryAcquire(1L, "covtest", "tok-x")) // 같은 토큰 → 카운트 증가 없이 허용
     }
 
     // --- helpers ---
