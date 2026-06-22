@@ -21,7 +21,6 @@
 | F2 | `PUT /v1/users/{id}/settings` — `notification_setting` 반영되고 **후속 발송 판정에 적용** | §3, §4 | 통합테스트 |
 | F3 | `POST /v1/notifications` → **202 + requestId**, 비동기로 발송돼 **mock provider 1회 호출**, `delivery.status=sent` | §1, §3 | 통합테스트 |
 | F4 | 템플릿 렌더링 — `templateId` + `params` → **치환된 본문**이 provider로 전달 | §4 | 통합테스트 |
-| F5 | 멀티채널 — `channel` 미지정 시 사용자 **enabled 채널마다 각각 발송**(예: push+email → delivery 2건) | §3 | 통합테스트 |
 | F6 | 멀티디바이스 — 한 user에 device 2개 → **push delivery 2건** 각각 발송 | §4 | 통합테스트 |
 | F7 | opt-out suppression — 거부된 채널/카테고리는 `status=suppressed`, **provider 호출 0** | §1, §6-3 | 통합테스트 |
 | F8 | 상태 조회 — `GET /v1/notifications/{requestId}` → `progress`(pending/partial/completed) + **delivery별 status 배열** | §3 | 통합테스트 |
@@ -81,7 +80,6 @@
 [F2] PUT settings — opt-out 저장되고 후속 발송 판정에 적용
 [F3] POST /v1/notifications → 202+requestId, 비동기 발송, mock provider 1회 호출, delivery.status=sent
 [F4] templateId+params → 치환된 본문이 provider로 전달
-[F5] channel 미지정 → enabled 채널마다 각각 발송 (예: push+email = delivery 2건)
 [F6] user 2-device → push delivery 2건 각각 발송
 [F7] opt-out된 채널/카테고리 → status=suppressed, provider 호출 0
 [F8] GET /v1/notifications/{requestId} → progress + delivery별 status 반환

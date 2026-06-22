@@ -4,7 +4,7 @@ import com.padosol.notification.config.ThrottleProperties
 import com.padosol.notification.domain.DeliveryStatus
 import com.padosol.notification.domain.Outbox
 import com.padosol.notification.domain.OutboxStatus
-import com.padosol.notification.provider.NotificationProvider
+import com.padosol.notification.provider.PushProvider
 import com.padosol.notification.provider.RenderedMessage
 import com.padosol.notification.repository.NotificationDeliveryRepository
 import com.padosol.notification.repository.OutboxRepository
@@ -26,11 +26,9 @@ object Backoff {
 
 /**
  * Outbox 릴레이(설계 §6-1 ②③④).
- * PENDING(due) outbox 를 provider 로 발행한다. 성공 → PUBLISHED + delivery SENT,
+ * PENDING(due) outbox 를 푸시 provider 로 발행한다. 성공 → PUBLISHED + delivery SENT,
  * 실패 → 지수 백오프 재시도, maxRetry 초과 시 DLQ + delivery FAILED.
- * provider 에 idempotencyKey 를 넘겨 재발행(크래시 후 회수)이 실발송 중복으로 이어지지 않게 한다(B5).
- *
- * 실제로는 폴러/CDC + 스케줄러로 돌지만(설계), 여기서는 호출 시 1배치 발행하는 [publishPending] 으로 둔다.
+ * 발송 직전 throttle 재검사(설계 §6-3): 필수 카테고리 면제, 한도 초과는 DROPPED.
  */
 @Component
 class OutboxRelay(
@@ -39,12 +37,10 @@ class OutboxRelay(
     private val throttle: ThrottleStore,
     private val throttleProps: ThrottleProperties,
     private val metrics: NotificationMetrics,
-    providers: List<NotificationProvider>,
+    private val push: PushProvider,
     @param:Value("\${notification.outbox.max-retry:5}") private val maxRetry: Int,
     @param:Value("\${notification.outbox.base-backoff-millis:1000}") private val baseBackoffMillis: Long,
 ) {
-    private val providerByChannel = providers.associateBy { it.channel }
-
     /** due 한 PENDING outbox 를 최대 limit 개 발행한다. @return 발행 성공 건수. */
     @Transactional
     fun publishPending(limit: Int = 100): Int {
@@ -61,26 +57,24 @@ class OutboxRelay(
     }
 
     private fun publishOne(row: Outbox): Boolean {
-        val provider = providerByChannel[row.channel] ?: return false
-
-        // 발송 직전 피로도 재검사(설계 §6-3). 필수 카테고리는 면제, 한도 초과 마케팅은 드롭.
+        // 발송 직전 피로도 재검사. 필수 카테고리는 면제, 한도 초과는 드롭.
         if (!throttleProps.isEssential(row.category) &&
             !throttle.tryAcquire(row.userId, row.category, row.idempotencyKey)
         ) {
             row.status = OutboxStatus.DROPPED
             outbox.save(row)
             updateDelivery(row.deliveryId, DeliveryStatus.THROTTLED)
-            metrics.throttled(row.channel)
+            metrics.throttled()
             return false
         }
 
         return try {
-            provider.send(row.target, RenderedMessage(row.subject, row.body), row.idempotencyKey)
+            push.send(row.target, RenderedMessage(row.subject, row.body), row.idempotencyKey)
             row.status = OutboxStatus.PUBLISHED
             row.publishedAt = Instant.now()
             outbox.save(row)
             updateDelivery(row.deliveryId, DeliveryStatus.SENT)
-            metrics.sent(row.channel)
+            metrics.sent()
             true
         } catch (e: Exception) {
             row.attemptCount += 1
@@ -91,7 +85,7 @@ class OutboxRelay(
                 row.nextAttemptAt = Instant.now().plus(Duration.ofMillis(Backoff.delayMillis(baseBackoffMillis, row.attemptCount)))
             }
             outbox.save(row)
-            metrics.failed(row.channel)
+            metrics.failed()
             false
         }
     }

@@ -39,7 +39,7 @@ class SettingController(private val registration: RegistrationService) {
 
     @PutMapping("/v1/users/{userId}/settings")
     fun update(@PathVariable userId: Long, @Valid @RequestBody request: UpdateSettingRequest) {
-        registration.updateSetting(userId, request.channel, request.category, request.enabled)
+        registration.updateSetting(userId, request.category, request.enabled)
     }
 }
 
@@ -61,7 +61,6 @@ class NotificationController(
         val result = notifications.accept(
             SendCommand(
                 userId = request.userId,
-                channel = request.channel,
                 templateId = request.templateId,
                 category = request.category,
                 priority = request.priority,

@@ -1,7 +1,6 @@
 package com.padosol.notification.repository
 
 import com.padosol.notification.domain.AppUser
-import com.padosol.notification.domain.Channel
 import com.padosol.notification.domain.Device
 import com.padosol.notification.domain.NotificationDelivery
 import com.padosol.notification.domain.NotificationRequest
@@ -21,7 +20,7 @@ interface DeviceRepository : JpaRepository<Device, Long> {
 }
 
 interface NotificationSettingRepository : JpaRepository<NotificationSetting, Long> {
-    fun findByUserIdAndChannelAndCategory(userId: Long, channel: Channel, category: String): NotificationSetting?
+    fun findByUserIdAndCategory(userId: Long, category: String): NotificationSetting?
 }
 
 interface TemplateRepository : JpaRepository<Template, String>
