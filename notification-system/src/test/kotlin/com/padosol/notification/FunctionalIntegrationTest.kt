@@ -63,6 +63,7 @@ class FunctionalIntegrationTest @Autowired constructor(
 
         repeat(2) {
             mockMvc.post("/v1/devices") {
+                header("X-Api-Key", "test-key")
                 contentType = MediaType.APPLICATION_JSON
                 content = body
             }.andExpect { status { isCreated() } }
@@ -78,6 +79,7 @@ class FunctionalIntegrationTest @Autowired constructor(
         templates.save(Template(templateId = "T", category = "marketing", body = "hi"))
 
         mockMvc.put("/v1/users/$user/settings") {
+            header("X-Api-Key", "test-key")
             contentType = MediaType.APPLICATION_JSON
             content = """{"channel":"PUSH","category":"marketing","enabled":false}"""
         }.andExpect { status { isOk() } }
@@ -163,7 +165,9 @@ class FunctionalIntegrationTest @Autowired constructor(
 
         val requestId = postNotification(user, "PUSH", "T", "transactional")
 
-        mockMvc.get("/v1/notifications/$requestId").andExpect {
+        mockMvc.get("/v1/notifications/$requestId") {
+            header("X-Api-Key", "test-key")
+        }.andExpect {
             status { isOk() }
             jsonPath("$.progress") { value("completed") }
             jsonPath("$.deliveries.length()") { value(1) }
@@ -186,6 +190,7 @@ class FunctionalIntegrationTest @Autowired constructor(
         val channelField = if (channel != null) "\"channel\":\"$channel\"," else ""
         val body = """{"userId":$userId,$channelField"templateId":"$templateId","category":"$category","params":$params}"""
         val response = mockMvc.post("/v1/notifications") {
+            header("X-Api-Key", "test-key")
             contentType = MediaType.APPLICATION_JSON
             content = body
         }.andExpect {

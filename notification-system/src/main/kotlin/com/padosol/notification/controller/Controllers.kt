@@ -6,6 +6,8 @@ import com.padosol.notification.dto.RequestStatusResponse
 import com.padosol.notification.dto.SendNotificationRequest
 import com.padosol.notification.dto.SendNotificationResponse
 import com.padosol.notification.dto.UpdateSettingRequest
+import com.padosol.notification.security.AccessControl
+import com.padosol.notification.security.ApiKeyAuthFilter
 import com.padosol.notification.service.NotificationService
 import com.padosol.notification.service.OutboxRelay
 import com.padosol.notification.service.RegistrationService
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
@@ -44,11 +47,17 @@ class SettingController(private val registration: RegistrationService) {
 class NotificationController(
     private val notifications: NotificationService,
     private val relay: OutboxRelay,
+    private val accessControl: AccessControl,
 ) {
 
     @PostMapping("/v1/notifications")
     @ResponseStatus(HttpStatus.ACCEPTED) // 202 — 접수만 보장(설계 §3)
-    fun send(@Valid @RequestBody request: SendNotificationRequest): SendNotificationResponse {
+    fun send(
+        @Valid @RequestBody request: SendNotificationRequest,
+        @RequestAttribute(ApiKeyAuthFilter.PRODUCER_ATTR) producerId: String, // 인증 필터가 주입(본문 값 불신)
+    ): SendNotificationResponse {
+        // 권한: producer 가 허용된 category/priority 안에서만 발송(설계 §6-3·§6-5). 위반 시 403.
+        accessControl.authorize(producerId, request.category, request.priority)
         val result = notifications.accept(
             SendCommand(
                 userId = request.userId,
@@ -57,7 +66,7 @@ class NotificationController(
                 category = request.category,
                 priority = request.priority,
                 params = request.params,
-                producerId = request.producerId,
+                producerId = producerId,
                 dedupKey = request.dedupKey,
             ),
         )

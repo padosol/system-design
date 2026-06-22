@@ -18,6 +18,11 @@ spring:
   flyway:
     enabled: true
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
 server:
   port: 8080
 
@@ -25,4 +30,22 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
+
+# 라운드D: 피로도(throttle)·보안. 운영에선 키/권한을 외부 설정/시크릿으로 주입한다(여기 값은 예시·개발용).
+notification:
+  throttle:
+    marketing-limit: 3
+    window-seconds: 86400
+    essential-categories: transactional,otp   # 한도 면제(필수 알림)
+  security:
+    api-keys:                # X-Api-Key → producerId
+      test-key: default
+      mkt-key: mkt
+    permissions:             # producerId → 허용 category / 최대 priority
+      default:
+        categories: transactional,otp,marketing
+        max-priority: high
+      mkt:
+        categories: marketing
+        max-priority: bulk

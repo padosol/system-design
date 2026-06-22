@@ -1,9 +1,11 @@
 package com.padosol.notification.service
 
+import com.padosol.notification.config.ThrottleProperties
 import com.padosol.notification.domain.DeliveryStatus
 import com.padosol.notification.domain.Outbox
 import com.padosol.notification.domain.OutboxStatus
 import com.padosol.notification.provider.NotificationProvider
+import com.padosol.notification.provider.RenderedMessage
 import com.padosol.notification.repository.NotificationDeliveryRepository
 import com.padosol.notification.repository.OutboxRepository
 import org.springframework.beans.factory.annotation.Value
@@ -34,6 +36,9 @@ object Backoff {
 class OutboxRelay(
     private val outbox: OutboxRepository,
     private val deliveries: NotificationDeliveryRepository,
+    private val throttle: ThrottleStore,
+    private val throttleProps: ThrottleProperties,
+    private val metrics: NotificationMetrics,
     providers: List<NotificationProvider>,
     @param:Value("\${notification.outbox.max-retry:5}") private val maxRetry: Int,
     @param:Value("\${notification.outbox.base-backoff-millis:1000}") private val baseBackoffMillis: Long,
@@ -57,12 +62,25 @@ class OutboxRelay(
 
     private fun publishOne(row: Outbox): Boolean {
         val provider = providerByChannel[row.channel] ?: return false
+
+        // 발송 직전 피로도 재검사(설계 §6-3). 필수 카테고리는 면제, 한도 초과 마케팅은 드롭.
+        if (!throttleProps.isEssential(row.category) &&
+            !throttle.tryAcquire(row.userId, row.category, row.idempotencyKey)
+        ) {
+            row.status = OutboxStatus.DROPPED
+            outbox.save(row)
+            updateDelivery(row.deliveryId, DeliveryStatus.THROTTLED)
+            metrics.throttled(row.channel)
+            return false
+        }
+
         return try {
-            provider.send(row.target, com.padosol.notification.provider.RenderedMessage(row.subject, row.body), row.idempotencyKey)
+            provider.send(row.target, RenderedMessage(row.subject, row.body), row.idempotencyKey)
             row.status = OutboxStatus.PUBLISHED
             row.publishedAt = Instant.now()
             outbox.save(row)
             updateDelivery(row.deliveryId, DeliveryStatus.SENT)
+            metrics.sent(row.channel)
             true
         } catch (e: Exception) {
             row.attemptCount += 1
@@ -73,6 +91,7 @@ class OutboxRelay(
                 row.nextAttemptAt = Instant.now().plus(Duration.ofMillis(Backoff.delayMillis(baseBackoffMillis, row.attemptCount)))
             }
             outbox.save(row)
+            metrics.failed(row.channel)
             false
         }
     }

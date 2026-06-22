@@ -8,7 +8,7 @@
 | 서비스 | 핵심 키워드 | 상태 |
 |--------|-------------|------|
 | [URL 단축 서비스](./url-shortener) | 해시, Base62, 캐싱, 리다이렉트 | ✅ 완료 |
-| [알림 시스템](./notification-system) | 멀티채널 fan-out, 메시지 큐, at-least-once, 멱등성 | 🚧 설계 완료 · 기능1R·신뢰성B 구현 |
+| [알림 시스템](./notification-system) | 멀티채널 fan-out, 메시지 큐, at-least-once, 멱등성 | 🚧 설계 완료 · 기능·신뢰성·보안 구현 |
 
 > 새 설계를 추가할 때는 [`TEMPLATE.md`](./TEMPLATE.md)를 복사해 시작하세요.
 

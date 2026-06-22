@@ -267,11 +267,12 @@ outbox  (request와 같은 TX)    └─ updated_at
 
 ## 구현 (Implementation)
 
-설계의 **기능 1라운드(F1~F8)** 를 **Kotlin + Spring Boot 4.0**으로 구현했다. 정량 완료 조건과 goal prompt는 [GOALS.md](./GOALS.md).
+설계를 **Kotlin + Spring Boot 4.0**으로 라운드별 구현했다(기능 → 신뢰성 → 피로도·보안). 정량 완료 조건과 goal prompt는 [GOALS.md](./GOALS.md).
 
-- **스택**: Kotlin, Spring Boot 4.0 (WebMVC, Data JPA), PostgreSQL, Flyway, Gradle
+- **스택**: Kotlin, Spring Boot 4.0 (WebMVC, Data JPA), PostgreSQL, Redis, Flyway, Gradle
 - **아키텍처**: 레이어드(Controller → Service → Repository). 발송 단위는 `notification_request`(접수 원장) → `notification_delivery`(채널·디바이스별)로 분리(설계 §4)
 - **발송(라운드B)**: 접수(`request`+`delivery`+`outbox` 원자 커밋)와 발행(**OutboxRelay**)을 분리. 멱등 `(producerId,dedupKey)`, 지수 백오프 재시도 → DLQ, provider idempotency key로 중복발행 흡수(설계 §6-1). 컨트롤러가 접수 직후 저지연 인라인 발행하고, 실패분은 릴레이가 회수.
+- **피로도·보안(라운드D)**: 발송 직전 throttle(Redis 슬라이딩 윈도우, 마케팅 한도·필수 면제), API key 인증(`X-Api-Key`)·producer 권한(category/priority), 상태조회 PII 마스킹, Micrometer 메트릭(backlog·채널별 발송/실패)(설계 §6-3·§6-5).
 - **서드파티**: FCM/Twilio/SendGrid 자리에 **기록형 mock provider 3종** — 라운드2에서 실 어댑터로 교체.
 
 ### API (구현분)
@@ -284,13 +285,14 @@ outbox  (request와 같은 TX)    └─ updated_at
 
 ### 실행 / 테스트
 ```bash
-./gradlew test     # Testcontainers(PostgreSQL) 기반 통합테스트, Docker 필요
+./gradlew test     # Testcontainers(PostgreSQL·Redis) 기반 통합테스트, Docker 필요
 ```
 
-### 검증 상태 (Testcontainers 통합테스트 — 총 17개 통과)
+### 검증 상태 (Testcontainers 통합테스트 — 총 25개 통과)
 - ✅ **라운드1 · 기능 F1~F8** (+컨텍스트 로드) — 디바이스 upsert · 설정 적용 · 발송 202+provider 1회+SENT · 템플릿 치환 · 멀티채널(push+email=2) · 멀티디바이스(2건) · opt-out suppressed(provider 0) · 상태조회.
 - ✅ **라운드B · 신뢰성 B1~B5** (+Backoff 단위) — B1 멱등(동시 50→1건·실발송 1) · B2 outbox 50건 유실 0 회수 · B3 발행실패 PENDING 잔존 후 회수 · B4 maxRetry 5 후 DLQ · B5 재발행 중복 0(provider 멱등).
-- ⏭️ **다음 라운드**: 피로도·보안(D) → 부하(C), 캠페인 fan-out (GOALS §3).
+- ✅ **라운드D · 피로도·보안 D1~D5** (+Pii 단위) — D1 마케팅 한도 초과 throttle 드롭(Redis 슬라이딩 윈도우, transactional 면제) · D2 인증 401 · D3 권한 밖 category·priority 403 · D4 상태조회 PII 마스킹 · D5 backlog gauge·채널별 카운터(Micrometer).
+- ⏭️ **다음 라운드**: 부하(C), 캠페인 fan-out (GOALS §3).
 
 ---
 

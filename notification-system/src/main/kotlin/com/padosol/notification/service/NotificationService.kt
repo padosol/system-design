@@ -79,7 +79,8 @@ class NotificationService(
             ds.none { it.status in DeliveryStatus.TERMINAL } -> "pending"
             else -> "partial"
         }
-        return RequestStatus(progress, ds.map { DeliveryView(it.channel, it.target, it.status) })
+        // PII 마스킹(설계 §6-5): 상태조회 응답에 연락처/토큰 원문을 노출하지 않는다.
+        return RequestStatus(progress, ds.map { DeliveryView(it.channel, Pii.mask(it.target), it.status) })
     }
 }
 
@@ -137,6 +138,8 @@ class RequestAcceptor(
                         subject = message.subject,
                         body = message.body,
                         idempotencyKey = "dlv-${d.id}", // delivery 단위 멱등키 — 릴레이 재발행 시 provider 가 흡수(B5)
+                        userId = user.id!!,
+                        category = cmd.category, // 발송 직전 throttle 판정용(설계 §6-3)
                     ),
                 )
             }

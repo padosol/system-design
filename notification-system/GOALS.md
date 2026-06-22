@@ -46,6 +46,22 @@
 
 ---
 
+## 1-D. 정량 완료 조건 — 피로도·보안 (라운드 D)
+
+> throttle(피로도) · 인증/인가 · PII 마스킹 · 모니터링 (설계 §6-3·§6-5). Redis 슬라이딩 윈도우 + API key 인증.
+
+| ID | 완료 조건 (정량) | 근거 | 검증 |
+|----|------------------|------|------|
+| D1 | 마케팅 사용자별 윈도우 한도(3) **초과분 throttle 드롭**(THROTTLED), transactional 면제 | §6-3 | 통합(Redis) |
+| D2 | 유효한 `X-Api-Key` 없으면 **401** | §6-5 | 통합 |
+| D3 | producer 권한 밖 **category·priority → 403** | §6-3·§6-5 | 통합 |
+| D4 | 상태조회 응답의 연락처 **PII 마스킹** | §6-5 | 통합 + 단위(Pii) |
+| D5 | **backlog gauge + 채널별 발송 카운터** 메트릭 노출 | §6-5 | 통합(Micrometer) |
+
+**게이트**: D1~D5 통합 + Pii 단위 전부 PASS.
+
+---
+
 ## 2. Goal Prompt (그대로 복사해 사용)
 
 ```text
@@ -81,6 +97,6 @@
 게이트는 **B → D → C 순**으로 덧붙인다(부하 C는 기능·신뢰성이 선통과해야 의미 있음).
 
 - ✅ **B. 신뢰성** — 멱등 `(producerId,dedupKey)`, Transactional Outbox·유실0, 재시도/DLQ, 릴레이 중복발행 방지 (§6-1) → **완료(§1-B)**
-- ⬜ **D. 피로도·보안** — throttle 빈도 한도, 인증(mTLS/JWT)·PII 암호화·모니터링 (§6-3, §6-5)
+- ✅ **D. 피로도·보안** — throttle 빈도 한도, 인증(API key)·인가·PII 마스킹·모니터링 (§6-3, §6-5) → **완료(§1-D)**
 - ⬜ **C. 성능·부하** — 피크 900/s·캠페인 16,000/s·`drain_time`·p95, k6 재현성 하니스(median of 3) (§2)
 - ⬜ **캠페인 fan-out** — `POST /v1/campaigns` 전개·checkpoint·backpressure (§6-2)
