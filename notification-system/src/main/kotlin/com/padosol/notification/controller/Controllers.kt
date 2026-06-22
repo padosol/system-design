@@ -7,6 +7,7 @@ import com.padosol.notification.dto.SendNotificationRequest
 import com.padosol.notification.dto.SendNotificationResponse
 import com.padosol.notification.dto.UpdateSettingRequest
 import com.padosol.notification.service.NotificationService
+import com.padosol.notification.service.OutboxRelay
 import com.padosol.notification.service.RegistrationService
 import com.padosol.notification.service.SendCommand
 import jakarta.validation.Valid
@@ -40,12 +41,15 @@ class SettingController(private val registration: RegistrationService) {
 }
 
 @RestController
-class NotificationController(private val notifications: NotificationService) {
+class NotificationController(
+    private val notifications: NotificationService,
+    private val relay: OutboxRelay,
+) {
 
     @PostMapping("/v1/notifications")
     @ResponseStatus(HttpStatus.ACCEPTED) // 202 — 접수만 보장(설계 §3)
     fun send(@Valid @RequestBody request: SendNotificationRequest): SendNotificationResponse {
-        val requestId = notifications.send(
+        val result = notifications.accept(
             SendCommand(
                 userId = request.userId,
                 channel = request.channel,
@@ -53,9 +57,13 @@ class NotificationController(private val notifications: NotificationService) {
                 category = request.category,
                 priority = request.priority,
                 params = request.params,
+                producerId = request.producerId,
+                dedupKey = request.dedupKey,
             ),
         )
-        return SendNotificationResponse(requestId = requestId)
+        // 저지연 인라인 발행(설계 §6-1). 실패해도 outbox 가 남아 릴레이가 회수하므로 유실되지 않는다.
+        relay.publishPending()
+        return SendNotificationResponse(requestId = result.requestId)
     }
 
     @GetMapping("/v1/notifications/{requestId}")

@@ -13,7 +13,7 @@ import java.time.Instant
 /** 발송 채널. */
 enum class Channel { PUSH, SMS, EMAIL }
 
-/** 전달 상태. 라운드1은 QUEUED→SENT, 그리고 SUPPRESSED 만 사용한다. */
+/** 전달 상태. 라운드1은 QUEUED→SENT/SUPPRESSED, 라운드B에서 FAILED(DLQ) 추가 사용. */
 enum class DeliveryStatus {
     QUEUED, SENT, DELIVERED, BOUNCED, EXPIRED, SUPPRESSED, FAILED;
 
@@ -22,6 +22,9 @@ enum class DeliveryStatus {
         val TERMINAL = setOf(SENT, DELIVERED, BOUNCED, EXPIRED, SUPPRESSED, FAILED)
     }
 }
+
+/** Outbox 발행 상태(라운드B). PENDING→PUBLISHED, 재시도 소진 시 DLQ. */
+enum class OutboxStatus { PENDING, PUBLISHED, DLQ }
 
 @Entity
 @Table(name = "app_user")
@@ -71,8 +74,28 @@ class NotificationRequest(
     @Column(name = "user_id", nullable = false) val userId: Long,
     @Column(name = "category", nullable = false, length = 32) val category: String,
     @Column(name = "priority", nullable = false, length = 16) val priority: String,
+    @Column(name = "producer_id", nullable = false, length = 64) val producerId: String = "default",
+    @Column(name = "dedup_key", length = 128) val dedupKey: String? = null,
     @Column(name = "created_at", nullable = false) val createdAt: Instant = Instant.now(),
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "request_id") var id: Long? = null,
+)
+
+/** Transactional Outbox 행(라운드B). delivery 1건당 1행, request 와 같은 트랜잭션으로 커밋된다. */
+@Entity
+@Table(name = "outbox")
+class Outbox(
+    @Column(name = "delivery_id", nullable = false) val deliveryId: Long,
+    @Enumerated(EnumType.STRING) @Column(name = "channel", nullable = false, length = 16) val channel: Channel,
+    @Column(name = "target", nullable = false, length = 512) val target: String,
+    @Column(name = "body", nullable = false, length = 4000) val body: String,
+    @Column(name = "idempotency_key", nullable = false, length = 255) val idempotencyKey: String,
+    @Column(name = "subject", length = 255) val subject: String? = null,
+    @Enumerated(EnumType.STRING) @Column(name = "status", nullable = false, length = 16) var status: OutboxStatus = OutboxStatus.PENDING,
+    @Column(name = "attempt_count", nullable = false) var attemptCount: Int = 0,
+    @Column(name = "next_attempt_at", nullable = false) var nextAttemptAt: Instant = Instant.now(),
+    @Column(name = "published_at") var publishedAt: Instant? = null,
+    @Column(name = "created_at", nullable = false) val createdAt: Instant = Instant.now(),
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "outbox_id") var id: Long? = null,
 )
 
 @Entity

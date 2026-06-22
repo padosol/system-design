@@ -26,7 +26,8 @@ data class SendNotificationRequest(
     @field:NotBlank val category: String,
     val priority: String? = null,
     val params: Map<String, String> = emptyMap(),
-    val dedupKey: String? = null, // 라운드B(멱등)에서 사용. 라운드1은 접수만.
+    val producerId: String = "default", // 호출 서비스 식별(라운드D에서 인증으로 대체). 멱등키 범위.
+    val dedupKey: String? = null,        // (producerId, dedupKey) 단위 멱등(라운드B)
 )
 
 // --- 응답 ---

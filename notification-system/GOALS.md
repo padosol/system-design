@@ -30,6 +30,22 @@
 
 ---
 
+## 1-B. 정량 완료 조건 — 신뢰성 (라운드 B)
+
+> 멱등 · Transactional Outbox · 재시도/DLQ · 중복발행 방지. 동기 디스패치 → **outbox + 릴레이**로 전환(설계 §6-1).
+
+| ID | 완료 조건 (정량) | 근거 | 검증 |
+|----|------------------|------|------|
+| B1 | 같은 `(producerId, dedupKey)` 재접수(**동시 50 포함**) → `notification_request` **1건**, 실발송 **1회** | §6-1 | 통합(순차+동시) |
+| B2 | 인라인 발행 없이 접수된 outbox **50건**을 릴레이가 전부 회수 → 실발송 50, **유실 0** | §6-1 | 통합 |
+| B3 | 발행 실패 주입 시 outbox **PENDING 잔존**(미발행), 회복 후 회수 | §6-1 | 통합(실패 주입) |
+| B4 | 영속 실패 → **maxRetry=5 후 DLQ** + delivery FAILED, 백오프 지수 증가 | §6-1 | 통합 + 단위(Backoff) |
+| B5 | 크래시 재발행 시 provider idempotency key 로 **실발송 중복 0** | §6-1 | 통합 |
+
+**게이트**: B1~B5 통합 + Backoff 단위 전부 PASS.
+
+---
+
 ## 2. Goal Prompt (그대로 복사해 사용)
 
 ```text
@@ -60,11 +76,11 @@
 
 ---
 
-## 3. 다음 라운드 (이번 범위 밖 — 기능이 green 된 뒤 추가)
+## 3. 다음 라운드
 
-기능(F*)이 통과하면 아래를 **B → D → C 순**으로 게이트를 덧붙인다(부하 C는 기능·신뢰성이 선통과해야 의미 있음).
+게이트는 **B → D → C 순**으로 덧붙인다(부하 C는 기능·신뢰성이 선통과해야 의미 있음).
 
-- **B. 신뢰성** — 멱등 `(producerId,dedupKey)`, Transactional Outbox·유실0, 재시도/DLQ, 릴레이 중복발행 방지 (§6-1)
-- **D. 피로도·보안** — throttle 빈도 한도, 인증(mTLS/JWT)·PII 암호화·모니터링 (§6-3, §6-5)
-- **C. 성능·부하** — 피크 900/s·캠페인 16,000/s·`drain_time`·p95, k6 재현성 하니스(median of 3) (§2)
-- **캠페인 fan-out** — `POST /v1/campaigns` 전개·checkpoint·backpressure (§6-2)
+- ✅ **B. 신뢰성** — 멱등 `(producerId,dedupKey)`, Transactional Outbox·유실0, 재시도/DLQ, 릴레이 중복발행 방지 (§6-1) → **완료(§1-B)**
+- ⬜ **D. 피로도·보안** — throttle 빈도 한도, 인증(mTLS/JWT)·PII 암호화·모니터링 (§6-3, §6-5)
+- ⬜ **C. 성능·부하** — 피크 900/s·캠페인 16,000/s·`drain_time`·p95, k6 재현성 하니스(median of 3) (§2)
+- ⬜ **캠페인 fan-out** — `POST /v1/campaigns` 전개·checkpoint·backpressure (§6-2)

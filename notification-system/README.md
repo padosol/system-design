@@ -271,8 +271,8 @@ outbox  (request와 같은 TX)    └─ updated_at
 
 - **스택**: Kotlin, Spring Boot 4.0 (WebMVC, Data JPA), PostgreSQL, Flyway, Gradle
 - **아키텍처**: 레이어드(Controller → Service → Repository). 발송 단위는 `notification_request`(접수 원장) → `notification_delivery`(채널·디바이스별)로 분리(설계 §4)
-- **발송**: 라운드1은 큐 대신 **동기 디스패치**로 단순화(GOALS 전제). 큐/outbox/재시도/멱등은 라운드B.
-- **서드파티**: FCM/Twilio/SendGrid 자리에 **기록형 mock provider 3종**(accept) — 라운드2에서 실 어댑터로 교체.
+- **발송(라운드B)**: 접수(`request`+`delivery`+`outbox` 원자 커밋)와 발행(**OutboxRelay**)을 분리. 멱등 `(producerId,dedupKey)`, 지수 백오프 재시도 → DLQ, provider idempotency key로 중복발행 흡수(설계 §6-1). 컨트롤러가 접수 직후 저지연 인라인 발행하고, 실패분은 릴레이가 회수.
+- **서드파티**: FCM/Twilio/SendGrid 자리에 **기록형 mock provider 3종** — 라운드2에서 실 어댑터로 교체.
 
 ### API (구현분)
 | 메서드 | 경로 | 설명 |
@@ -287,10 +287,10 @@ outbox  (request와 같은 TX)    └─ updated_at
 ./gradlew test     # Testcontainers(PostgreSQL) 기반 통합테스트, Docker 필요
 ```
 
-### 검증 상태 (1라운드 · 기능)
-- ✅ **기능 테스트 9개 통과** — F1~F8 + 컨텍스트 로드. Testcontainers로 실제 PostgreSQL 검증.
-  F1 디바이스 upsert(중복 0) · F2 설정 적용 · F3 발송 202+provider 1회+SENT · F4 템플릿 치환 · F5 멀티채널(push+email=2) · F6 멀티디바이스(2건) · F7 opt-out suppressed(provider 0) · F8 상태조회(progress+delivery).
-- ⏭️ **다음 라운드**: 신뢰성(멱등·outbox·DLQ) → 피로도·보안 → 부하, 캠페인 fan-out (GOALS §3).
+### 검증 상태 (Testcontainers 통합테스트 — 총 17개 통과)
+- ✅ **라운드1 · 기능 F1~F8** (+컨텍스트 로드) — 디바이스 upsert · 설정 적용 · 발송 202+provider 1회+SENT · 템플릿 치환 · 멀티채널(push+email=2) · 멀티디바이스(2건) · opt-out suppressed(provider 0) · 상태조회.
+- ✅ **라운드B · 신뢰성 B1~B5** (+Backoff 단위) — B1 멱등(동시 50→1건·실발송 1) · B2 outbox 50건 유실 0 회수 · B3 발행실패 PENDING 잔존 후 회수 · B4 maxRetry 5 후 DLQ · B5 재발행 중복 0(provider 멱등).
+- ⏭️ **다음 라운드**: 피로도·보안(D) → 부하(C), 캠페인 fan-out (GOALS §3).
 
 ---
 
