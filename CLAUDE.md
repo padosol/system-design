@@ -4,7 +4,7 @@
 
 ## 문서 (→ [`docs/`](./docs/README.md))
 - **코드 작성 가이드** [`docs/code-guide`](./docs/code-guide/README.md): 신규 코드/시스템이 따르는 6대 원칙 — 헥사고날 · DDD · TDD · RESTful · 로깅 · 에러 중앙화
-- **결정 기록(ADR)** [`docs/adr`](./docs/adr/README.md) · **용어집** [`docs/glossary.md`](./docs/glossary.md): 도메인 규칙·아키텍처 결정이나 새 용어가 생기면 갱신
+- **결정 기록(ADR)·용어집**: 공통/시스템은 루트([`docs/adr`](./docs/adr/README.md), [`docs/glossary.md`](./docs/glossary.md)), 서비스 고유는 [`docs/<서비스>/`](./docs/README.md)(adr·glossary). 도메인 규칙·결정·새 용어가 생기면 해당 계층을 갱신
 
 ## 스택
 - Kotlin + Spring Boot 4.0, Gradle (Kotlin DSL)

@@ -17,8 +17,8 @@
 - [ ] `println`/`printStackTrace` 없음, 민감정보 마스킹
 
 ## 문서 영향
-- [ ] 도메인 규칙/아키텍처 결정 변경 → ADR 추가·수정 (`docs/adr/`)
-- [ ] 새 용어 도입 → `docs/glossary.md` 갱신
+- [ ] 도메인 규칙/아키텍처 결정 변경 → ADR 추가·수정 (시스템: `docs/adr/`, 서비스: `docs/<서비스>/adr/`)
+- [ ] 새 용어 도입 → 용어집 갱신 (공통: `docs/glossary.md`, 도메인: `docs/<서비스>/glossary.md`)
 - [ ] 규약 변경 → 관련 `CLAUDE.md` 갱신
 
 ## DB

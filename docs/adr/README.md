@@ -1,7 +1,8 @@
 # 시스템 ADR 인덱스
 
-아키텍처 결정 기록(Architecture Decision Record). 여러 도메인에 걸친 결정을 여기 둔다.
-특정 도메인 안에서만 영향이 끝나는 결정은 `{도메인}/docs/adr/`에 둔다.
+아키텍처 결정 기록(Architecture Decision Record). 여러 서비스에 걸친 결정을 여기 둔다.
+특정 서비스 안에서만 영향이 끝나는 결정은 서비스별 ADR에 둔다:
+[url-shortener](../url-shortener/adr/README.md) · [notification-system](../notification-system/adr/README.md).
 
 > 기준: "이 결정을 바꾸려면 다른 시스템/도메인 코드도 건드려야 하나?" → Yes면 여기(시스템 ADR).
 > "6개월 뒤 누군가 의문을 가질 만한 결정"만 ADR로 남긴다. 일상 코드 결정은 남기지 않는다.
