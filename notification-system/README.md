@@ -287,13 +287,15 @@ outbox  (request와 같은 TX)    └─ updated_at
 
 ### 실행 / 테스트
 ```bash
-./gradlew test     # Testcontainers(PostgreSQL·Redis) 기반 통합테스트, Docker 필요
+./gradlew test              # Testcontainers(PostgreSQL·Redis) 기반 통합테스트, Docker 필요
+./gradlew jacocoTestReport  # 커버리지 리포트 생성 → build/reports/jacoco/test/html/index.html
 ```
+> 커버리지는 **JaCoCo**로 측정한다(메서드·분기 80%+ 달성). 리포트는 `build/reports/jacoco/test/`(HTML·XML).
 
 ### 검증 상태 (Testcontainers 통합테스트 — 총 36개 통과)
-- ✅ **라운드1 · 기능(푸시)** (+컨텍스트 로드) — 디바이스 upsert · 설정 적용 · 발송 202+provider 1회+SENT · 템플릿 치환 · 멀티디바이스(2건) · opt-out suppressed(provider 0) · 상태조회.
+- ✅ **라운드1 · 기능(푸시)** (+컨텍스트 로드·TemplateRenderer 단위) — 디바이스 upsert · 설정 적용 · 발송 202+provider 1회+SENT · 템플릿 치환 · 멀티디바이스(2건) · opt-out suppressed(provider 0) · 상태조회.
 - ✅ **라운드B · 신뢰성 B1~B5** (+Backoff 단위) — B1 멱등(동시 50→1건·실발송 1) · B2 outbox 50건 유실 0 회수 · B3 발행실패 PENDING 잔존 후 회수 · B4 maxRetry 5 후 DLQ · B5 재발행 중복 0(provider 멱등).
-- ✅ **라운드D · 피로도·보안 D1~D5** (+Pii 단위) — D1 마케팅 한도 초과 throttle 드롭(Redis 슬라이딩 윈도우, transactional 면제) · D2 인증 401 · D3 권한 밖 category·priority 403 · D4 상태조회 PII 마스킹 · D5 backlog gauge·발송 카운터(Micrometer).
+- ✅ **라운드D · 피로도·보안 D1~D5** (+Pii·AccessControl 단위) — D1 마케팅 한도 초과 throttle 드롭(Redis 슬라이딩 윈도우, transactional 면제) · D2 인증 401 · D3 권한 밖 category·priority 403 · D4 상태조회 PII 마스킹 · D5 backlog gauge·발송 카운터(Micrometer).
 - ⏭️ **다음 라운드**: 부하(C), 캠페인 fan-out (GOALS §3).
 
 ---
